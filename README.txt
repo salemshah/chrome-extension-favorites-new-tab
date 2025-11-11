@@ -89,18 +89,3 @@ More specifically, the log data ...
 ... is NOT combined with data from other sources
 ... is NOT shared with third parties
 ... is deleted after 14 days.
-
-
-
-
---------------------------------------------------------------------
-
-
-================
-Dear Competitor!
-================
-
-Please, do not steal this work! Respect the copyright! If you want to use parts of the source code
-in your own project, please, write an email to ask for permission: support@web-accessories.com.
-
-M. Foit, Leipzig, Germany, 2019.

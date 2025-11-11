@@ -1,7 +1,96 @@
 
 const api = {};
 {
-	api.SERVER_URL = (chrome.runtime.id == "kjkbcegjfanmgocnecnngfcmmojheiam") ? 'https://api.web-accessories.com' : 'http://localhost';
+	api.SERVER_URL = 'http://localhost:3000';// javascript
+	// `background.js` (service worker) - keep this file DOM-free and strict-mode safe
+	const PROD_EXTENSION_ID = "kjkbcegjfanmgocnecnngfcmmojheiam";
+	const LOCAL_API = "http://localhost:3000";
+	const PROD_API = "https://api.web-accessories.com";
+	const SERVER_URL = (chrome.runtime && chrome.runtime.id === PROD_EXTENSION_ID) ? PROD_API : LOCAL_API;
+
+	// expose minimal api on the SW global (self)
+	self.api = { SERVER_URL };
+
+	self.addEventListener('install', (event) => {
+	  // ensure immediate activation during development
+	  event.waitUntil(self.skipWaiting());
+	});
+
+	self.addEventListener('activate', (event) => {
+	  event.waitUntil(self.clients.claim());
+	});
+
+	// simple message handler so pages can request SW data
+	chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+	  if (msg && msg.type === 'GET_SERVER_URL') {
+	    sendResponse({ serverUrl: SERVER_URL });
+	    return true; // keep sendResponse alive for async (not used here)
+	  }
+	  // add other background-only handlers here
+	});// javascript
+	// `page-ui.js` - move all DOM and template code here; replace `with(window){...}` by an IIFE
+	(function(window){
+	  // minimal example translated from your template snippet
+	  function initAlertDialogUI() {
+	    if (window.AlertDialogUI) return window.AlertDialogUI;
+
+	    const t = document.createElement('template');
+	    t.innerHTML = `<style>:host{width:auto;min-width:400px}#message{white-space:pre-wrap}</style>
+	      <a-topbar>
+	        <h1 slot="left"></h1>
+	        <a-button slot="right" title="i18n:close" data-icon="close" data-action="cancel"></a-button>
+	      </a-topbar>
+	      <div id="message" class="text"></div>
+	      <div class="buttons">
+	        <a-button data-action="ok" tabindex="1">OK</a-button>
+	      </div>`;
+
+	    // localize text nodes in template
+	    for (const el of t.content.querySelectorAll('[data-i18n]')) {
+	      el.textContent = chrome.i18n.getMessage(el.dataset.i18n) || el.dataset.i18n;
+	    }
+	    for (const el of t.content.querySelectorAll('[title^="i18n:"]')) {
+	      el.title = chrome.i18n.getMessage(el.title.substr(5)) || el.title.substr(5);
+	    }
+	    for (const el of t.content.querySelectorAll('[data-placeholder^="i18n:"]')) {
+	      el.dataset.placeholder = chrome.i18n.getMessage(el.dataset.placeholder.substr(5)) || el.dataset.placeholder.substr(5);
+	    }
+
+	    class AlertDialogUI extends HTMLElement {
+	      constructor() {
+	        super();
+	        const shadow = this.attachShadow({ mode: 'open' });
+	        shadow.appendChild(t.content.cloneNode(true));
+	        this._message = shadow.getElementById('message');
+	        this._ok = shadow.querySelector('[data-action="ok"]');
+	        this._ok.addEventListener('click', () => this.close());
+	      }
+	      connectedCallback() {}
+	      show(message) {
+	        this._message.textContent = message;
+	        document.body.appendChild(this);
+	      }
+	      close() {
+	        if (this.parentNode) this.parentNode.removeChild(this);
+	      }
+	    }
+
+	    customElements.define('a-alert-dialog-ui', AlertDialogUI);
+	    window.AlertDialogUI = AlertDialogUI;
+	    return window.AlertDialogUI;
+	  }
+
+	  // initialize the UI module
+	  window.initAlertDialogUI = initAlertDialogUI;
+
+	  // example: request SERVER_URL from the service worker and show it
+	  chrome.runtime.sendMessage({ type: 'GET_SERVER_URL' }, (resp) => {
+	    initAlertDialogUI();
+	    const dlg = new window.AlertDialogUI();
+	    dlg.show('Server URL: ' + (resp && resp.serverUrl ? resp.serverUrl : 'unknown'));
+	  });
+
+	})(window);
 	const traverseAPIEventListeners = function(name, dict, callback) {
 		if(api[name][dict]) {
 			let listeners = api[name][dict];
